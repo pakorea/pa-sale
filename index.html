@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>촬영장비 판매 목록</title>
+<style>
+:root{
+  --bg:#f6f5f2; --card:#ffffff; --line:#e3e0d9; --ink:#242220; --dim:#6d6862;
+  --accent:#2f5d50; --accent-soft:#e8f0ed; --warn:#a8522c; --warn-soft:#f7ece6;
+  --sold:#9a958e;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  line-height:1.65;-webkit-text-size-adjust:100%}
+.wrap{max-width:1180px;margin:0 auto;padding:0 18px 80px}
+
+/* 헤더 */
+header{background:#fff;border-bottom:1px solid var(--line);padding:26px 0 22px;margin-bottom:22px}
+header .wrap{padding-bottom:0}
+h1{margin:0 0 6px;font-size:24px;letter-spacing:-0.5px}
+.sub{color:var(--dim);font-size:14px;margin:0}
+.stats{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+.stat{background:var(--accent-soft);border:1px solid #cfe0d9;border-radius:10px;padding:10px 14px;min-width:130px}
+.stat b{display:block;font-size:19px;letter-spacing:-0.5px}
+.stat span{font-size:12px;color:var(--dim)}
+
+/* 컨트롤 */
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:18px}
+.chip{background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;cursor:pointer;color:var(--dim)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.spacer{flex:1}
+.adminbtn{background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 13px;font-size:12.5px;cursor:pointer;color:var(--dim)}
+.adminbtn.on{background:var(--warn-soft);border-color:#e0c3b2;color:var(--warn)}
+
+/* 그리드 */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+.card.sold .nm,.card.sold .brand,.card.sold dl,.card.sold .desc{color:var(--sold)}
+.galwrap{position:relative}
+.soldmark{position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);
+  display:flex;align-items:center;justify-content:center;pointer-events:none;z-index:2}
+.soldmark .ring{width:112px;height:112px;border:3px solid #fff;border-radius:50%;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  color:#fff;font-size:19px;font-weight:700;line-height:1.3;letter-spacing:1.5px;
+  text-shadow:0 1px 3px rgba(0,0,0,.35)}
+.gal{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:#efece6;
+  height:186px;overflow:hidden}
+.gal.n1{grid-template-columns:1fr}
+.gal.n2{grid-template-columns:1fr 1fr}
+.gal a{position:relative;display:block;overflow:hidden;min-width:0;min-height:0}
+.gal img{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;display:block}
+.nopic{height:190px;display:flex;align-items:center;justify-content:center;background:#f0ede7;color:#a49e96;font-size:13px}
+.body{padding:14px 15px 15px;display:flex;flex-direction:column;flex:1}
+.tagrow{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px}
+.tag{font-size:11px;padding:2px 8px;border-radius:5px;background:#f0ede7;color:var(--dim)}
+.tag.new{background:var(--accent-soft);color:var(--accent)}
+.tag.defect{background:var(--warn-soft);color:var(--warn)}
+.tag.soldtag{background:#e9e6e1;color:var(--sold)}
+.nm{font-size:15.5px;font-weight:700;letter-spacing:-0.4px;margin:0 0 3px;line-height:1.4}
+.brand{font-size:12.5px;color:var(--dim);margin:0 0 10px}
+dl{margin:0 0 12px;font-size:13px}
+dl div{display:flex;gap:8px;padding:3px 0;border-bottom:1px dashed #f0ede7}
+dl dt{color:var(--dim);min-width:48px;flex-shrink:0}
+dl dd{margin:0;flex:1}
+.price{font-size:20px;font-weight:700;color:var(--accent);letter-spacing:-0.5px;margin-top:auto;padding-top:2px}
+.card.sold .price{color:var(--sold);text-decoration:line-through}
+.btns{display:none;gap:7px;margin-top:11px}
+body.admin .btns{display:flex}
+button.soldbtn{flex:1;border:1.5px solid var(--accent);background:#fff;border-radius:8px;padding:10px;
+  font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;color:var(--accent)}
+button.soldbtn:hover{background:var(--accent-soft)}
+button.soldbtn::before{content:"● ";font-size:10px;vertical-align:2px}
+.card.sold button.soldbtn{background:var(--warn-soft);border-color:#d9b7a4;color:var(--warn)}
+
+/* 품목 설명 */
+.desc{font-size:13px;color:#4a4640;background:#faf9f7;border-radius:8px;
+  padding:10px 12px;margin:0 0 12px;line-height:1.6;flex-shrink:0}
+/* 관리 패널 (판매완료 표시를 켰을 때만 보임) */
+.panel{display:none;background:#fff;border:1px solid #e0c3b2;border-left:3px solid var(--warn);
+  border-radius:10px;padding:16px 18px;margin-bottom:20px}
+body.admin .panel{display:block}
+.panel h3{margin:0 0 4px;font-size:14px;color:var(--warn)}
+.panel p.pd{margin:0 0 11px;font-size:12.5px;color:var(--dim)}
+.panel textarea{width:100%;min-height:290px;border:1px solid var(--line);border-radius:8px;
+  padding:13px;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo",sans-serif;
+  font-size:13px;line-height:1.75;background:#fbfaf8;color:var(--ink);resize:vertical}
+.panel .prow{display:flex;gap:8px;margin-top:9px;align-items:center}
+.panel button{border:1px solid var(--accent);background:var(--accent);color:#fff;border-radius:8px;
+  padding:9px 16px;font-size:13px;cursor:pointer;font-family:inherit}
+.panel .note{font-size:11.5px;color:var(--dim)}
+
+/* 섹션 */
+h2.sec{font-size:15px;margin:32px 0 13px;padding-bottom:8px;border-bottom:2px solid var(--line);letter-spacing:-0.3px}
+h2.sec span{font-weight:400;color:var(--dim);font-size:13px;margin-left:7px}
+.notice{background:#fff;border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:8px;padding:13px 16px;font-size:13.5px;color:var(--dim);margin-bottom:20px}
+.notice b{color:var(--ink)}
+footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);font-size:12px;color:var(--dim)}
+.toast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%) translateY(20px);
+  background:var(--ink);color:#fff;padding:11px 20px;border-radius:9px;font-size:13.5px;
+  opacity:0;transition:.22s;pointer-events:none;z-index:99}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (max-width:600px){
+  .grid{grid-template-columns:1fr}
+  h1{font-size:20px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>촬영장비 판매 목록</h1>
+    <p class="sub">스튜디오 정리로 나온 장비입니다. 품목별 사진과 구성품을 확인하실 수 있습니다.</p>
+    <div class="stats">
+      <div class="stat"><b id="stCount">–</b><span>판매중 품목</span></div>
+      <div class="stat"><b id="stSum">–</b><span>판매중 합계</span></div>
+      <div class="stat"><b id="stSold">–</b><span>판매완료</span></div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="notice">
+    스튜디오를 정리하며 쓰던 장비를 한 번에 내놓습니다. <b>낱개로도 구매 가능</b>하며,
+    여러 개 함께 가져가시면 가격을 조정해 드립니다. 직거래 우선이며 택배 발송도 가능합니다.<br>
+    <b>판매된 품목은 목록에서 「판매완료」로 표시</b>되니, 표시가 없는 품목은 아직 구매하실 수 있습니다.
+    구매 문의는 이 목록을 보신 <b>중고거래 앱의 채팅</b>으로 주세요.
+  </div>
+
+  <div class="panel">
+    <h3>플랫폼에 올릴 글 (관리용 · 구매자에게는 보이지 않습니다)</h3>
+    <p class="pd">당근마켓·번개장터·중고나라 어디에나 이 글 하나를 그대로 올립니다.
+      링크 자리에 사이트 주소만 넣으면 됩니다.</p>
+    <textarea id="postText" readonly></textarea>
+    <div class="prow">
+      <button id="copyPost">이 글 복사하기</button>
+      <span class="note">품목이 팔리면 그 품목의 <b>「판매중」 버튼</b>을 누르세요. 사진에 판매완료 표시가 붙고 합계도 다시 계산됩니다.</span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="chip on" data-f="all">전체</button>
+    <button class="chip" data-f="카메라·렌즈">카메라·렌즈</button>
+    <button class="chip" data-f="태블릿">태블릿</button>
+    <button class="chip" data-f="조명·스트로브">조명·스트로브</button>
+    <button class="chip" data-f="소프트박스">소프트박스</button>
+    <button class="chip" data-f="소프트박스 그리드">그리드</button>
+    <button class="chip" data-f="반사판">반사판</button>
+    <button class="chip" data-f="전원·수신기·멀티탭">전원·수신기</button>
+    <button class="chip" data-f="기타 장비">기타</button>
+    <span class="spacer"></span>
+    <button class="adminbtn" id="adminToggle">관리 모드</button>
+  </div>
+
+  <div id="out"></div>
+
+  <footer>
+    촬영장비 판매 목록 · 2026년 8월 기준<br>
+    판매된 품목은 목록에서 판매완료로 표시됩니다.
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const B1 = "img/cam/";
+const B2 = "img/std/";
+const C1 = {g01:2,g02:2,g03:2,g04:2,g05:2,g06:2};
+const C2 = {g01:3,g02:4,g03:5,g04:5,g05:5,g06:5,g07:3,g08:3,g09:3,g10:4,g11:4,g12:4,g13:2,
+  g14:2,g15:2,g16:2,g17:7,g18:3,g19:3,g20:5,g21:5,g22:3,g23:4,g24:2,g25:2,g26:1,g27:1,g28:2,g29:1,g30:1};
+
+// price = 만원 단위 숫자 / cond = 구매자용 상태 / note = 문구 마지막 안내 한 줄
+const ITEMS = [
+ // ── 카메라·렌즈 (2026-08-11 확정가) ──
+ {id:"c1", cat:"카메라·렌즈", nm:"캐논 EOS 5D Mark IV 바디", brand:"Canon",
+  parts:"바디 + 배터리 + 충전기", cond:"정상 작동 · 셔터 컷수 확인 중", price:130,
+  note:"셔터 컷수는 확인되는 대로 안내드리겠습니다. 배터리와 충전기가 함께 나갑니다.",
+  b:B1, c:C1, imgs:["g01"], tags:["박스 확인 중"]},
+ {id:"c2", cat:"카메라·렌즈", nm:"캐논 EF 16-35mm F2.8L III USM", brand:"Canon",
+  parts:"렌즈 본품 + 박스", cond:"S급 · 광학/AF 정상", price:125,
+  note:"광학과 AF 모두 정상이며 외관도 깨끗한 편입니다.",
+  b:B1, c:C1, imgs:["g02"], tags:["박스 있음"]},
+ {id:"c3", cat:"카메라·렌즈", nm:"캐논 EF 24-70mm F2.8L II USM", brand:"Canon",
+  parts:"렌즈 본품 + 박스", cond:"외관 사용감 있음 · 광학/AF 정상", price:110,
+  note:"줌링 고무에 사용감이 있으나 광학과 AF는 정상 작동합니다.",
+  b:B1, c:C1, imgs:["g03"], tags:["박스 있음"]},
+ {id:"c4", cat:"카메라·렌즈", nm:"캐논 EF 24-105mm F4L IS USM (1세대)", brand:"Canon",
+  parts:"렌즈 본품 + 박스", cond:"외관 사용감 있음 · 광학/AF 정상", price:70,
+  note:"고무링에 사용감이 있으나 광학과 AF는 정상 작동합니다.",
+  b:B1, c:C1, imgs:["g04"], tags:["박스 있음"]},
+ {id:"c5", cat:"카메라·렌즈", nm:"캐논 EF 50mm F1.4 USM", brand:"Canon",
+  parts:"렌즈 본품 + 박스", cond:"S급 · 광학/AF 정상", price:25,
+  note:"가볍게 쓰기 좋은 표준 단렌즈입니다. 상태 깨끗합니다.",
+  b:B1, c:C1, imgs:["g05"], tags:["박스 있음"]},
+ {id:"c6", cat:"카메라·렌즈", nm:"캐논 EF 85mm F1.2L II USM", brand:"Canon",
+  parts:"렌즈 본품 + 박스", cond:"S급 · 광학/AF 정상", price:110,
+  note:"인물 촬영용 대구경 단렌즈입니다. 상태 깨끗합니다.",
+  b:B1, c:C1, imgs:["g06"], tags:["박스 있음"]},
+
+ // ── 태블릿 (2026-08-11 추가) ──
+ {id:"t1", cat:"태블릿", nm:"iPad Pro 12.9 4세대 128GB", brand:"Apple",
+  parts:"확인 중", cond:"확인 중", price:80,
+  note:"구성품과 상태는 확인되는 대로 업데이트하겠습니다.",
+  b:"", c:{}, imgs:[], tags:["신규","사진 준비 중"]},
+
+ // ── 조명·스트로브 ──
+ {id:"s1", cat:"조명·스트로브", nm:"아마란 100D LED 조명", brand:"Amaran",
+  parts:"본체 + 파워선 + 반도어 + 그리드", cond:"작동 확인 완료", price:15.5,
+  note:"반도어와 그리드까지 포함된 풀구성이며, 점등 작동을 확인했습니다.",
+  b:B2, c:C2, imgs:["g20"], tags:["풀구성"]},
+ {id:"s2", cat:"조명·스트로브", nm:"포멕스 E400 스트로브", brand:"FOMEX",
+  parts:"본체 + 파워선 + 줌리플렉터", cond:"발광 작동 확인 · 모델링 램프 없음", price:15,
+  note:"모델링 램프는 없습니다. 발광 작동은 테스트로 확인했습니다.",
+  b:B2, c:C2, imgs:["g06"], tags:["1개"]},
+ {id:"s3", cat:"조명·스트로브", nm:"포멕스 E600 스트로브 2개", brand:"FOMEX",
+  parts:"본체 2개 + 램프 덮개", cond:"파워선·램프 없음", price:22,
+  note:"파워선과 램프가 없어 별도로 준비하셔야 합니다. 2개 일괄입니다.",
+  b:B2, c:C2, imgs:["g07"], tags:["2개 일괄","구성품 없음"]},
+
+ // ── 소프트박스 ──
+ {id:"b1", cat:"소프트박스", nm:"소프트박스 직사각 75×175 (실버)", brand:"FOMEX",
+  parts:"본체 + 스피드링 + 살대 4개 + 속디퓨저 + 겉디퓨저 + 파우치", cond:"미사용 새 제품", price:30,
+  note:"사용하지 않은 새 제품입니다. 스피드링·살대·디퓨저·파우치까지 전 구성 포함입니다.",
+  b:B2, c:C2, imgs:["g05"], tags:["새 제품","전 구성"]},
+ {id:"b2", cat:"소프트박스", nm:"소프트박스 옥타 120 원터치", brand:"GODOX",
+  parts:"본체 + 속디퓨저 + 겉디퓨저 + 그리드 + 파우치", cond:"속디퓨저 부착부 1곳 떨어짐", price:3,
+  note:"속디퓨저 부착부 한 곳이 떨어져 있습니다. 사용에는 지장 없으나 감안하고 보세요. 스피드링 부착형입니다.",
+  b:B2, c:C2, imgs:["g17"], tags:["부분 손상"]},
+ {id:"b3", cat:"소프트박스", nm:"소프트박스 파라볼릭 150", brand:"난라이트",
+  parts:"본체 + 스피드링 + 파우치", cond:"디퓨저 없음", price:9,
+  note:"디퓨저가 없습니다. 본체와 스피드링, 파우치만 나갑니다.",
+  b:B2, c:C2, imgs:["g18"], tags:["구성품 없음"]},
+ {id:"b4", cat:"소프트박스", nm:"소프트박스 75×175", brand:"",
+  parts:"본품", cond:"상태 확인 필요", price:15,
+  note:"최근 입고된 물건으로, 상태는 직접 확인하시는 편이 정확합니다.",
+  b:B2, c:C2, imgs:["g24"], tags:["신규"]},
+ {id:"b5", cat:"소프트박스", nm:"포멕스 45×45 소프트박스", brand:"FOMEX",
+  parts:"본품", cond:"상태 확인 필요", price:2.2,
+  note:"소형 소프트박스입니다.",
+  b:B2, c:C2, imgs:["g25"], tags:["신규"]},
+ {id:"b6", cat:"소프트박스", nm:"포멕스 옥타 150 실버 소프트박스", brand:"FOMEX",
+  parts:"본품", cond:"상태 확인 필요", price:9,
+  note:"대형 옥타 소프트박스입니다.",
+  b:B2, c:C2, imgs:["g26"], tags:["신규"]},
+
+ // ── 그리드 ──
+ {id:"g1", cat:"소프트박스 그리드", nm:"소프트박스 그리드 80×120 (2개)", brand:"",
+  parts:"본품 2개", cond:"상태 확인 필요", price:9,
+  note:"소프트박스용 그리드 2개 일괄입니다.",
+  b:B2, c:C2, imgs:["g27"], tags:["신규","2개 일괄"]},
+ {id:"g2", cat:"소프트박스 그리드", nm:"소프트박스 그리드 100×140", brand:"",
+  parts:"본품", cond:"상태 확인 필요", price:5.5,
+  note:"소프트박스용 그리드입니다.",
+  b:B2, c:C2, imgs:["g28"], tags:["신규"]},
+ {id:"g3", cat:"소프트박스 그리드", nm:"소프트박스 그리드 40×120", brand:"",
+  parts:"본품", cond:"상태 확인 필요", price:3.5,
+  note:"스트립 소프트박스용 그리드입니다.",
+  b:B2, c:C2, imgs:["g29"], tags:["신규"]},
+
+ // ── 반사판 ──
+ {id:"r1", cat:"반사판", nm:"반사판 (화이트/실버) M", brand:"MATIN",
+  parts:"본품 + 전용 파우치", cond:"사용감 있음 · 정상", price:1.2,
+  note:"전용 파우치가 함께 나갑니다.",
+  b:B2, c:C2, imgs:["g09"], tags:["1개"]},
+ {id:"r2", cat:"반사판", nm:"반사판 (화이트/실버) M (2개)", brand:"PERI",
+  parts:"본품 2개 + 파우치", cond:"사용감 있음 · 정상", price:1.2,
+  note:"2개 일괄입니다. 파우치 포함입니다.",
+  b:B2, c:C2, imgs:["g14","g15"], tags:["2개 일괄"]},
+ {id:"r3", cat:"반사판", nm:"반사판 직사각 24×36 (화이트/실버) (2개)", brand:"유쾌한 생각",
+  parts:"본품 2개 + 파우치", cond:"2개 중 1개 손상 있음", price:1.3,
+  note:"2개 일괄이며 그중 1개는 손상이 있습니다. 가격에 반영했습니다.",
+  b:B2, c:C2, imgs:["g21","g22"], tags:["2개 일괄","부분 손상"]},
+
+ // ── 전원·수신기·멀티탭 ──
+ {id:"p1", cat:"전원·수신기·멀티탭", nm:"V마운트 배터리 세트 (26V)", brand:"유쾌한생각",
+  parts:"배터리 4개 + 2채널 충전기 1개", cond:"정상 작동 · 모델 FS-NV260", price:48,
+  note:"배터리 4개와 2채널 충전기 세트입니다. 모델은 FS-NV260입니다.",
+  b:B2, c:C2, imgs:["g02"], tags:["세트"]},
+ {id:"p2", cat:"전원·수신기·멀티탭", nm:"SMDV 무선 수신기 (8개)", brand:"SMDV",
+  parts:"수신기 본체 8개", cond:"송신기·케이블 없음", price:10.5,
+  note:"수신기 본체만 8개 일괄입니다. 송신기와 케이블은 없습니다. 조명 여러 대를 동시에 연결할 수 있습니다.",
+  b:B2, c:C2, imgs:["g16"], tags:["8개 일괄","구성품 없음"]},
+ {id:"p3", cat:"전원·수신기·멀티탭", nm:"16구 멀티탭", brand:"",
+  parts:"본품", cond:"정상 · AC 250V 16A", price:1.5,
+  note:"배선용 꽂음 접속기입니다. AC 250V 16A 규격입니다.",
+  b:B2, c:C2, imgs:["g01"], tags:[]},
+
+ // ── 기타 장비 ──
+ {id:"e1", cat:"기타 장비", nm:"600W 유선 진공청소기", brand:"FRITZ Germany",
+  parts:"본품만", cond:"작동 확인 완료 · 모델 FZ-600Vc", price:1.8,
+  note:"유선 600W 제품이며 작동 확인했습니다. 본품만 나갑니다.",
+  b:B2, c:C2, imgs:["g04"], tags:[]},
+ {id:"e2", cat:"기타 장비", nm:"충전식 송풍기", brand:"밀워키",
+  parts:"본체 + 배터리 1개", cond:"충전기 없음", price:9.5,
+  note:"본체와 배터리 1개 구성입니다. 충전기는 없습니다.",
+  b:B2, c:C2, imgs:["g19"], tags:["구성품 없음"]},
+ {id:"e3", cat:"기타 장비", nm:"유선 전기스토브", brand:"유파",
+  parts:"본체", cond:"작동 확인 완료", price:1.3,
+  note:"작동 확인했습니다.",
+  b:B2, c:C2, imgs:["g23"], tags:[]},
+ {id:"e4", cat:"기타 장비", nm:"마네킹 2종 5개", brand:"",
+  parts:"2종 5개", cond:"상태 확인 필요", price:10,
+  note:"2종 5개 일괄입니다.",
+  b:B2, c:C2, imgs:["g30"], tags:["신규","5개 일괄"]},
+];
+
+const CATORDER = ["카메라·렌즈","태블릿","조명·스트로브","소프트박스","소프트박스 그리드","반사판","전원·수신기·멀티탭","기타 장비"];
+const KEY = "pa_sale_sold_v1";
+const SB_URL = "https://vpfscmojmbmmhzpjptca.supabase.co";
+const SB_KEY = "sb_publishable_MKBLfZU_6xBfYJXqt_NP2w_wZTPn7kn";
+const SB_HEAD = { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY };
+let sold = JSON.parse(localStorage.getItem(KEY) || "{}");
+let filter = "all";
+let adminPw = sessionStorage.getItem("pa_sale_pw") || "";
+
+// 서버에서 판매완료 상태를 읽어온다 (실패하면 마지막으로 본 상태를 쓴다)
+async function loadSold(){
+  try {
+    const r = await fetch(SB_URL + "/rest/v1/pa_sale_status?select=item_id,sold", { headers: SB_HEAD });
+    if (!r.ok) throw new Error("load failed");
+    const rows = await r.json();
+    const next = {};
+    rows.forEach(x => { if (x.sold) next[x.item_id] = 1; });
+    sold = next;
+    localStorage.setItem(KEY, JSON.stringify(sold));
+  } catch (e) {
+    sold = JSON.parse(localStorage.getItem(KEY) || "{}");
+  }
+  render();
+}
+
+// 판매완료 상태를 서버에 저장한다 (비밀번호는 서버가 검증한다)
+async function saveSold(id, val){
+  const r = await fetch(SB_URL + "/rest/v1/rpc/set_pa_sale_status", {
+    method: "POST",
+    headers: Object.assign({ "Content-Type": "application/json" }, SB_HEAD),
+    body: JSON.stringify({ p_item: id, p_sold: val, p_pw: adminPw })
+  });
+  return r.ok;
+}
+
+function won(v){ return (Number.isInteger(v) ? v : v.toFixed(1)) + "만원"; }
+
+const SITE_URL = "https://pakorea.github.io/pa-sale/";
+
+function makePost(){
+  const live = ITEMS.filter(it => !sold[it.id]);
+  const sum = live.reduce((a,b) => a + b.price, 0);
+  return [
+"스튜디오 정리 — 촬영장비 일괄 판매합니다",
+"",
+"스튜디오를 정리하며 쓰던 장비를 한 번에 내놓습니다.",
+"품목이 많아 사진과 가격을 한 페이지에 정리해 두었습니다.",
+"아래 링크에서 전체 목록을 보실 수 있습니다.",
+"",
+"▶ " + SITE_URL,
+"",
+"[ 판매 품목 " + live.length + "종 ]",
+"· 카메라·렌즈 : 캐논 5D Mark IV 바디, EF 16-35 F2.8L III, 24-70 F2.8L II,",
+"  24-105 F4L, 50mm F1.4, 85mm F1.2L II",
+"· 태블릿 : iPad Pro 12.9 4세대 128GB",
+"· 조명 : 아마란 100D LED, 포멕스 E400·E600 스트로브",
+"· 소프트박스 : 75×175, 옥타 120·150, 파라볼릭 150, 45×45 등",
+"· 그리드 : 80×120, 100×140, 40×120",
+"· 반사판 : MATIN·PERI·유쾌한생각 (M / 24×36)",
+"· 전원 : V마운트 배터리 4개 + 충전기 세트, SMDV 수신기 8개, 16구 멀티탭",
+"· 그 외 : 진공청소기, 충전식 송풍기, 전기스토브, 마네킹",
+"",
+"[ 거래 안내 ]",
+"· 낱개 구매 가능합니다. 여러 개 함께 가져가시면 조정해 드립니다.",
+"· 판매된 품목은 위 링크 목록에서 「판매완료」로 표시됩니다.",
+"  표시가 없는 품목은 아직 구매하실 수 있습니다.",
+"· 직거래 우선이며 택배 발송도 가능합니다.",
+"· 구성품·상태는 품목마다 링크에 자세히 적어두었습니다.",
+"",
+"문의는 채팅으로 주세요."
+  ].join("\n");
+}
+
+function files(it){
+  const out = [];
+  it.imgs.forEach(g => { for (let i=1; i<=(it.c[g]||0); i++) out.push(it.b + g + "_" + i + ".jpg"); });
+  return out;
+}
+
+function galHtml(it){
+  const f = files(it).slice(0,3);
+  if (!f.length) return '<div class="nopic">사진 준비 중</div>';
+  const im = s => '<a href="'+encodeURI(s)+'" target="_blank"><img loading="lazy" src="'+encodeURI(s)+'" alt=""></a>';
+  return '<div class="gal n'+f.length+'">'+f.map(im).join('')+'</div>';
+}
+
+function render(){
+  const out = document.getElementById("out");
+  out.innerHTML = "";
+  const shown = ITEMS.filter(it => filter === "all" || it.cat === filter);
+
+  CATORDER.forEach(cat => {
+    const list = shown.filter(it => it.cat === cat);
+    if (!list.length) return;
+    const live = list.filter(it => !sold[it.id]).length;
+    const h2 = document.createElement("h2");
+    h2.className = "sec";
+    h2.innerHTML = cat + '<span>' + list.length + '품목 · 판매중 ' + live + '</span>';
+    out.appendChild(h2);
+
+    const grid = document.createElement("div");
+    grid.className = "grid";
+    list.forEach(it => {
+      const isSold = !!sold[it.id];
+      const tags = it.tags.map(t => {
+        const cls = /손상|없음|확인/.test(t) ? "defect" : (/신규|새 제품/.test(t) ? "new" : "");
+        return '<span class="tag '+cls+'">'+t+'</span>';
+      }).join("");
+      const card = document.createElement("div");
+      card.className = "card" + (isSold ? " sold" : "");
+      const mark = isSold
+        ? '<div class="soldmark"><div class="ring"><span>판매</span><span>완료</span></div></div>'
+        : '';
+      card.innerHTML =
+        '<div class="galwrap">' + galHtml(it) + mark + '</div>' +
+        '<div class="body">' +
+          '<div class="tagrow">' + (isSold ? '<span class="tag soldtag">판매완료</span>' : '') + tags + '</div>' +
+          '<p class="nm">' + it.nm + '</p>' +
+          (it.brand ? '<p class="brand">' + it.brand + '</p>' : '') +
+          '<dl>' +
+            '<div><dt>구성품</dt><dd>' + it.parts + '</dd></div>' +
+            '<div><dt>상태</dt><dd>' + it.cond + '</dd></div>' +
+          '</dl>' +
+          '<p class="desc">' + it.note + '</p>' +
+          '<div class="price">' + won(it.price) + '</div>' +
+          '<div class="btns">' +
+            '<button class="soldbtn" data-sold="'+it.id+'">' + (isSold ? '판매완료' : '판매중') + '</button>' +
+          '</div>' +
+        '</div>';
+      grid.appendChild(card);
+    });
+    out.appendChild(grid);
+  });
+
+  const live = ITEMS.filter(it => !sold[it.id]);
+  const sum = live.reduce((a,b) => a + b.price, 0);
+  document.getElementById("stCount").textContent = live.length + "품목";
+  document.getElementById("stSum").textContent = (Math.round(sum*10)/10) + "만원";
+  document.getElementById("stSold").textContent = (ITEMS.length - live.length) + "품목";
+  document.getElementById("postText").value = makePost();
+}
+
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("on");
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("on"), 1700);
+}
+
+document.addEventListener("click", async e => {
+  const b = e.target.closest("button");
+  if (!b) return;
+
+  if (b.id === "copyPost"){
+    const ta = document.getElementById("postText");
+    const txt = ta.value;
+    if (navigator.clipboard) navigator.clipboard.writeText(txt).then(() => toast("플랫폼에 올릴 글을 복사했습니다"));
+    else { ta.select(); document.execCommand("copy"); toast("플랫폼에 올릴 글을 복사했습니다"); }
+  }
+  if (b.dataset.sold){
+    const id = b.dataset.sold;
+    const next = !sold[id];
+    b.disabled = true; b.textContent = "저장 중…";
+    const ok = await saveSold(id, next);
+    b.disabled = false;
+    if (!ok){
+      adminPw = ""; sessionStorage.removeItem("pa_sale_pw");
+      render();
+      toast("저장하지 못했습니다. 관리 모드를 다시 켜고 비밀번호를 확인해 주세요");
+      return;
+    }
+    if (next) sold[id] = 1; else delete sold[id];
+    localStorage.setItem(KEY, JSON.stringify(sold));
+    render();
+    toast(next ? "판매완료로 표시했습니다" : "판매중으로 되돌렸습니다");
+  }
+  if (b.classList.contains("chip")){
+    document.querySelectorAll(".chip").forEach(c => c.classList.remove("on"));
+    b.classList.add("on"); filter = b.dataset.f; render();
+  }
+  if (b.id === "adminToggle"){
+    if (document.body.classList.contains("admin")){
+      document.body.classList.remove("admin"); b.classList.remove("on"); return;
+    }
+    const pw = prompt("관리 비밀번호를 입력하세요");
+    if (pw === null || pw === "") return;
+    adminPw = pw; sessionStorage.setItem("pa_sale_pw", pw);
+    document.body.classList.add("admin"); b.classList.add("on");
+  }
+});
+
+render();
+loadSold();
+</script>
+</body>
+</html>
