@@ -107,6 +107,41 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);font-si
   .grid{grid-template-columns:1fr}
   h1{font-size:20px}
 }
+
+/* ── 대표 검토(승인·반려·가격수정) 260921 ── */
+.rvbar{display:none;background:#fff;border:1px solid var(--line);border-radius:12px;
+  padding:13px 16px;margin:0 0 16px;align-items:center;gap:13px;flex-wrap:wrap}
+body.admin .rvbar{display:flex}
+.rvbar .prog{flex:1;min-width:170px;height:11px;background:#eceae4;border-radius:7px;overflow:hidden}
+.rvbar .prog i{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+.rvbar .n{font-size:13px;font-weight:600;white-space:nowrap;color:var(--dim)}
+.rvbar .n b{font-size:16px;color:var(--ink)}
+.rvbar .n.ap b{color:var(--accent)} .rvbar .n.rj b{color:var(--warn)} .rvbar .n.ed b{color:#8a5a00}
+.rvonly{background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;
+  font-size:13px;cursor:pointer;color:var(--dim);font-family:inherit}
+.rvonly.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.rvbtns{display:none;gap:6px;margin-top:8px}
+body.admin .rvbtns{display:flex}
+.rvb{flex:1;border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:8px 4px;
+  font-size:12.5px;font-weight:700;cursor:pointer;font-family:inherit;color:var(--dim)}
+.rvb.ap{border-color:var(--accent);color:var(--accent)}
+.rvb.rj{border-color:#c4553a;color:#c4553a}
+.rvb.ed{border-color:#8a5a00;color:#8a5a00}
+.rvb.on{color:#fff}
+.rvb.ap.on{background:var(--accent)} .rvb.rj.on{background:#c4553a} .rvb.ed.on{background:#8a5a00}
+.rvtag{position:absolute;top:9px;left:9px;font-size:10.5px;font-weight:700;
+  padding:3px 9px;border-radius:7px;z-index:3;display:none}
+body.admin .rvtag{display:block}
+.rvtag.wait{background:#eceae4;color:var(--dim)}
+.rvtag.approved{background:var(--accent-soft);color:var(--accent)}
+.rvtag.rejected{background:#fbe4dd;color:#c4553a}
+.rvtag.edited{background:#fff1d6;color:#8a5a00}
+.card.rejected{opacity:.6}
+.oldp{font-size:13.5px;font-weight:600;color:var(--sold);text-decoration:line-through;margin-right:7px}
+.rvnote{font-size:11.5px;color:#8a5a00;background:#fff8e8;border-radius:6px;
+  padding:5px 8px;margin-top:7px;display:none}
+body.admin .rvnote{display:block}
+
 </style>
 </head>
 <body>
@@ -157,7 +192,15 @@ footer{margin-top:44px;padding-top:18px;border-top:1px solid var(--line);font-si
     <button class="adminbtn" id="adminToggle">관리 모드</button>
   </div>
 
-  <div id="out"></div>
+  <div class="rvbar">
+  <div class="n">검토 <b id="rvDone">0</b> / <span id="rvTotal">0</span></div>
+  <div class="prog"><i id="rvProg"></i></div>
+  <div class="n ap">승인 <b id="rvAp">0</b></div>
+  <div class="n rj">반려 <b id="rvRj">0</b></div>
+  <div class="n ed">가격수정 <b id="rvEd">0</b></div>
+  <button class="rvonly" id="rvOnly">미검토만 보기</button>
+</div>
+<div id="out"></div>
 
   <footer>
     촬영장비 판매 목록 · 2026년 9월 기준<br>
@@ -318,6 +361,39 @@ let sold = JSON.parse(localStorage.getItem(KEY) || "{}");
 let filter = "all";
 let adminPw = sessionStorage.getItem("pa_sale_pw") || "";
 
+
+// ── 대표 검토 상태 (승인·반려·가격수정) 260921 ──
+let review = {};
+let onlyWait = false;
+function rv(id){ return review[id] || { status: "wait", price: null }; }
+function priceOf(it){
+  const r = rv(it.id);
+  return (r.status === "edited" && r.price != null) ? Number(r.price) : it.price;
+}
+function isRejected(id){ return rv(id).status === "rejected"; }
+
+async function loadReview(){
+  try{
+    const r = await fetch(SB_URL + "/rest/v1/pa_sale_review?select=item_id,status,new_price",
+                          { headers: SB_HEAD });
+    if (!r.ok) return;
+    const rows = await r.json();
+    const next = {};
+    rows.forEach(x => next[x.item_id] = { status: x.status, price: x.new_price });
+    review = next;
+    render();
+  }catch(e){}
+}
+async function saveReview(id, status, price, oldPrice){
+  const r = await fetch(SB_URL + "/rest/v1/rpc/set_pa_sale_review", {
+    method: "POST",
+    headers: Object.assign({ "Content-Type": "application/json" }, SB_HEAD),
+    body: JSON.stringify({ p_item: id, p_status: status, p_price: price,
+                           p_old_price: oldPrice, p_pw: adminPw })
+  });
+  return r.ok;
+}
+
 // 서버에서 판매완료 상태를 읽어온다 (실패하면 마지막으로 본 상태를 쓴다)
 async function loadSold(){
   try {
@@ -349,8 +425,8 @@ function won(v){ return (Number.isInteger(v) ? v : v.toFixed(1)) + "만원"; }
 const SITE_URL = "https://pakorea.github.io/pa-sale/";
 
 function makePost(){
-  const live = ITEMS.filter(it => !sold[it.id]);
-  const sum = live.reduce((a,b) => a + b.price, 0);
+  const live = ITEMS.filter(it => !sold[it.id] && !isRejected(it.id));
+  const sum = live.reduce((a,b) => a + priceOf(b), 0);
   return [
 "스튜디오 정리 — 촬영장비 일괄 판매합니다",
 "",
@@ -398,12 +474,15 @@ function galHtml(it){
 function render(){
   const out = document.getElementById("out");
   out.innerHTML = "";
-  const shown = ITEMS.filter(it => filter === "all" || it.cat === filter);
+  const isAdmin = document.body.classList.contains("admin");
+  let shown = ITEMS.filter(it => filter === "all" || it.cat === filter);
+  if (!isAdmin) shown = shown.filter(it => !isRejected(it.id));       // 반려는 고객에게 안 보임
+  if (isAdmin && onlyWait) shown = shown.filter(it => rv(it.id).status === "wait");
 
   CATORDER.forEach(cat => {
     const list = shown.filter(it => it.cat === cat);
     if (!list.length) return;
-    const live = list.filter(it => !sold[it.id]).length;
+    const live = list.filter(it => !sold[it.id] && !isRejected(it.id)).length;
     const h2 = document.createElement("h2");
     h2.className = "sec";
     h2.innerHTML = cat + '<span>' + list.length + '품목 · 판매중 ' + live + '</span>';
@@ -418,11 +497,15 @@ function render(){
         return '<span class="tag '+cls+'">'+t+'</span>';
       }).join("");
       const card = document.createElement("div");
-      card.className = "card" + (isSold ? " sold" : "");
+      const rvs = rv(it.id);
+      card.className = "card" + (isSold ? " sold" : "") + (rvs.status === "rejected" ? " rejected" : "");
       const mark = isSold
         ? '<div class="soldmark"><div class="ring"><span>판매</span><span>완료</span></div></div>'
         : '';
       card.innerHTML =
+        '<span class="rvtag ' + rvs.status + '">' +
+          ({wait:"미검토", approved:"승인", rejected:"반려", edited:"가격수정"}[rvs.status]) +
+        '</span>' +
         '<div class="galwrap">' + galHtml(it) + mark + '</div>' +
         '<div class="body">' +
           '<div class="tagrow">' + (isSold ? '<span class="tag soldtag">판매완료</span>' : '') + tags + '</div>' +
@@ -433,22 +516,52 @@ function render(){
             '<div><dt>상태</dt><dd>' + it.cond + '</dd></div>' +
           '</dl>' +
           '<p class="desc">' + it.note + '</p>' +
-          '<div class="price">' + won(it.price) + '</div>' +
+          '<div class="price">' +
+            (rvs.status === "edited" && rvs.price != null
+               ? '<span class="oldp">' + won(it.price) + '</span>' + won(Number(rvs.price))
+               : won(it.price)) +
+          '</div>' +
           '<div class="btns">' +
             '<button class="soldbtn" data-sold="'+it.id+'">' + (isSold ? '판매완료' : '판매중') + '</button>' +
           '</div>' +
+          '<div class="rvbtns">' +
+            '<button class="rvb ap' + (rvs.status==="approved"?" on":"") + '" data-rv="approved" data-id="'+it.id+'">승인</button>' +
+            '<button class="rvb rj' + (rvs.status==="rejected"?" on":"") + '" data-rv="rejected" data-id="'+it.id+'">반려</button>' +
+            '<button class="rvb ed' + (rvs.status==="edited"?" on":"") + '" data-rv="edited" data-id="'+it.id+'">가격수정</button>' +
+          '</div>' +
+          (rvs.status === "rejected" ? '<div class="rvnote" style="color:#c4553a;background:#fbe4dd">고객 화면에서 내려갔습니다</div>' :
+           rvs.status === "edited"   ? '<div class="rvnote">대표 수정가로 고객에게 보입니다</div>' : '') +
         '</div>';
       grid.appendChild(card);
     });
     out.appendChild(grid);
   });
 
-  const live = ITEMS.filter(it => !sold[it.id]);
-  const sum = live.reduce((a,b) => a + b.price, 0);
+  const live = ITEMS.filter(it => !sold[it.id] && !isRejected(it.id));
+  const sum = live.reduce((a,b) => a + priceOf(b), 0);
+  updateRvBar();
   document.getElementById("stCount").textContent = live.length + "품목";
   document.getElementById("stSum").textContent = (Math.round(sum*10)/10) + "만원";
   document.getElementById("stSold").textContent = (ITEMS.length - live.length) + "품목";
   document.getElementById("postText").value = makePost();
+}
+
+function updateRvBar(){
+  const tot = ITEMS.length;
+  let ap=0, rj=0, ed=0;
+  ITEMS.forEach(it => {
+    const st = rv(it.id).status;
+    if (st === "approved") ap++;
+    else if (st === "rejected") rj++;
+    else if (st === "edited") ed++;
+  });
+  const done = ap + rj + ed;
+  const g = id => document.getElementById(id);
+  if (!g("rvDone")) return;
+  g("rvDone").textContent = done;  g("rvTotal").textContent = tot;
+  g("rvAp").textContent = ap;      g("rvRj").textContent = rj;
+  g("rvEd").textContent = ed;
+  g("rvProg").style.width = (tot ? Math.round(done / tot * 100) : 0) + "%";
 }
 
 function toast(msg){
@@ -484,23 +597,75 @@ document.addEventListener("click", async e => {
     render();
     toast(next ? "판매완료로 표시했습니다" : "판매중으로 되돌렸습니다");
   }
+  if (b.id === "rvOnly"){
+    onlyWait = !onlyWait;
+    b.classList.toggle("on", onlyWait);
+    b.textContent = onlyWait ? "전체 보기" : "미검토만 보기";
+    render();
+  }
+  if (b.dataset.rv){
+    const id = b.dataset.id;
+    const want = b.dataset.rv;
+    const it = ITEMS.find(x => x.id === id);
+    const cur = rv(id);
+    // 같은 걸 다시 누르면 미검토로 되돌린다
+    const next = (cur.status === want) ? "wait" : want;
+    let price = null;
+
+    if (next === "edited"){
+      const now = priceOf(it);
+      const inp = prompt("새 가격을 만원 단위로 넣어 주세요\n\n" + it.nm + "\n지금 " + won(now), String(now));
+      if (inp === null) return;
+      const v = Number(String(inp).replace(/[^0-9.]/g, ""));
+      if (!v || v <= 0){ toast("숫자를 확인해 주세요"); return; }
+      if (!confirm("고객 화면 가격이 이렇게 바뀝니다.\n\n" + it.nm + "\n" + won(it.price) + "  →  " + won(v) + "\n\n저장할까요?")) return;
+      price = v;
+    }
+    if (next === "rejected"){
+      if (!confirm("반려하면 이 품목은 고객 화면에서 바로 내려갑니다.\n\n" + it.nm + "\n\n반려할까요?")) return;
+    }
+
+    b.disabled = true;
+    const okSave = await saveReview(id, next, price, it.price);
+    b.disabled = false;
+    if (!okSave){
+      adminPw = ""; sessionStorage.removeItem("pa_sale_pw");
+      document.body.classList.remove("admin");
+      document.getElementById("adminToggle").classList.remove("on");
+      render();
+      toast("저장하지 못했습니다. 관리 모드를 다시 켜고 비밀번호를 확인해 주세요");
+      return;
+    }
+    if (next === "wait") delete review[id];
+    else review[id] = { status: next, price: price };
+    render();
+    toast({wait:"미검토로 되돌렸습니다", approved:"승인했습니다",
+           rejected:"반려했습니다 — 고객 화면에서 내려갔습니다",
+           edited:"가격을 바꿨습니다"}[next]);
+  }
   if (b.classList.contains("chip")){
     document.querySelectorAll(".chip").forEach(c => c.classList.remove("on"));
     b.classList.add("on"); filter = b.dataset.f; render();
   }
   if (b.id === "adminToggle"){
     if (document.body.classList.contains("admin")){
-      document.body.classList.remove("admin"); b.classList.remove("on"); return;
+      document.body.classList.remove("admin"); b.classList.remove("on");
+      onlyWait = false;
+      const ro = document.getElementById("rvOnly");
+      if (ro){ ro.classList.remove("on"); ro.textContent = "미검토만 보기"; }
+      render(); return;
     }
     const pw = prompt("관리 비밀번호를 입력하세요");
     if (pw === null || pw === "") return;
     adminPw = pw; sessionStorage.setItem("pa_sale_pw", pw);
     document.body.classList.add("admin"); b.classList.add("on");
+    render();
   }
 });
 
 render();
 loadSold();
+loadReview();
 </script>
 </body>
 </html>
