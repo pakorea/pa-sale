@@ -438,6 +438,36 @@ function won(v){ return (Number.isInteger(v) ? v : v.toFixed(1)) + "만원"; }
 
 const SITE_URL = "https://pakorea.github.io/pa-sale/";
 
+
+// 플랫폼 글의 분류별 품목 줄 — 지금 팔고 있는 것만 넣는다 (260929)
+// 예전엔 품목 이름을 글에 직접 적어둬서, 보류·판매완료가 생겨도 29개가 그대로 나갔다.
+// ("판매 품목 24종"이라고 써놓고 29개를 나열하는 상태)
+const POST_GROUPS = [
+  ["카메라·렌즈", [["c1","캐논 5D Mark IV 바디"],["c2","EF 16-35 F2.8L III"],["c3","24-70 F2.8L II"],
+                   ["c4","24-105 F4L"],["c5","50mm F1.4"],["c6","85mm F1.2L II"]]],
+  ["태블릿",     [["t1","iPad Pro 12.9 4세대 128GB"]]],
+  ["조명",       [["s1","아마란 100D LED"],["s2","포멕스 E400 스트로브"],["s3","포멕스 E600 스트로브 2개"]]],
+  ["소프트박스", [["b1","75×175 실버"],["b4","75×175"],["b2","옥타 120"],["b6","옥타 150"],
+                   ["b3","파라볼릭 150"],["b5","45×45"]]],
+  ["그리드",     [["g1","80×120"],["g2","100×140"],["g3","40×120"]]],
+  ["반사판",     [["r1","MATIN M"],["r2","PERI M"],["r3","유쾌한 생각 24×36"]]],
+  ["전원",       [["p1","V마운트 배터리 4개 + 충전기 세트"],["p2","SMDV 수신기 8개"],["p3","16구 멀티탭"]]],
+  ["그 외",      [["e1","진공청소기"],["e2","충전식 송풍기"],["e3","전기스토브"],["e4","마네킹"]]],
+];
+function postLines(live){
+  const on = new Set(live.map(it => it.id));
+  const out = [];
+  POST_GROUPS.forEach(([cat, list]) => {
+    const names = list.filter(([id]) => on.has(id)).map(([, nm]) => nm);
+    if (names.length) out.push("· " + cat + " : " + names.join(", "));
+  });
+  // 목록에 없는 새 품목이 생겨도 빠지지 않게 (POST_GROUPS에 안 적힌 id)
+  const known = new Set(POST_GROUPS.flatMap(([, l]) => l.map(([id]) => id)));
+  const extra = live.filter(it => !known.has(it.id)).map(it => it.nm);
+  if (extra.length) out.push("· 추가 : " + extra.join(", "));
+  return out;
+}
+
 function makePost(){
   const live = ITEMS.filter(it => !sold[it.id] && !isRejected(it.id));
   const sum = live.reduce((a,b) => a + priceOf(b), 0);
@@ -451,15 +481,7 @@ function makePost(){
 "▶ " + SITE_URL,
 "",
 "[ 판매 품목 " + live.length + "종 ]",
-"· 카메라·렌즈 : 캐논 5D Mark IV 바디, EF 16-35 F2.8L III, 24-70 F2.8L II,",
-"  24-105 F4L, 50mm F1.4, 85mm F1.2L II",
-"· 태블릿 : iPad Pro 12.9 4세대 128GB",
-"· 조명 : 아마란 100D LED, 포멕스 E400·E600 스트로브",
-"· 소프트박스 : 75×175, 옥타 120·150, 파라볼릭 150, 45×45 등",
-"· 그리드 : 80×120, 100×140, 40×120",
-"· 반사판 : MATIN·PERI·유쾌한생각 (M / 24×36)",
-"· 전원 : V마운트 배터리 4개 + 충전기 세트, SMDV 수신기 8개, 16구 멀티탭",
-"· 그 외 : 진공청소기, 충전식 송풍기, 전기스토브, 마네킹",
+postLines(live),
 "",
 "[ 거래 안내 ]",
 "· 낱개 구매 가능합니다. 여러 개 함께 가져가시면 조정해 드립니다.",
@@ -469,7 +491,7 @@ function makePost(){
 "· 구성품·상태는 품목마다 링크에 자세히 적어두었습니다.",
 "",
 "문의는 채팅으로 주세요."
-  ].join("\n");
+  ].flat().join("\n");
 }
 
 function files(it){
@@ -489,6 +511,17 @@ function render(){
   const out = document.getElementById("out");
   out.innerHTML = "";
   const isAdmin = document.body.classList.contains("admin");
+  // 팔 물건이 하나도 없는 분류 버튼은 고객에게 숨긴다 (260929)
+  // 보류로 분류 전체가 내려가면 버튼만 남아 눌러도 빈 화면이 되기 때문
+  const hasItems = cat => ITEMS.some(it => it.cat === cat && (isAdmin || !isRejected(it.id)));
+  document.querySelectorAll(".chip").forEach(c => {
+    if (c.dataset.f === "all") return;
+    c.style.display = hasItems(c.dataset.f) ? "" : "none";
+  });
+  if (filter !== "all" && !hasItems(filter)){
+    filter = "all";
+    document.querySelectorAll(".chip").forEach(c => c.classList.toggle("on", c.dataset.f === "all"));
+  }
   let shown = ITEMS.filter(it => filter === "all" || it.cat === filter);
   if (!isAdmin) shown = shown.filter(it => !isRejected(it.id));       // 반려는 고객에게 안 보임
   if (isAdmin && onlyWait) shown = shown.filter(it => rv(it.id).status === "wait");
@@ -543,7 +576,7 @@ function render(){
             '<button class="rvb rj' + (rvs.status==="rejected"?" on":"") + '" data-rv="rejected" data-id="'+it.id+'">반려</button>' +
             '<button class="rvb ed' + (rvs.status==="edited"?" on":"") + '" data-rv="edited" data-id="'+it.id+'">가격수정</button>' +
           '</div>' +
-          (rvs.status === "rejected" ? '<div class="rvnote" style="color:#c4553a;background:#fbe4dd">고객 화면에서 내려갔습니다</div>' :
+          (rvs.status === "rejected" ? '<div class="rvnote" style="color:#c4553a;background:#fbe4dd">판매 보류 — 고객에게 안 보임. 확정되면 [승인]을 누르면 다시 올라갑니다</div>' :
            rvs.status === "edited"   ? '<div class="rvnote">대표 수정가로 고객에게 보입니다</div>' : '') +
         '</div>';
       grid.appendChild(card);
