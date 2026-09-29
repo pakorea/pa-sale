@@ -384,6 +384,20 @@ async function loadReview(){
     render();
   }catch(e){}
 }
+// 관리 모드에 들어갈 때 비밀번호가 맞는지 먼저 서버에 묻는다 (260929)
+// 예전엔 틀린 비번이어도 관리 모드가 켜지고 버튼이 떴다가, 첫 저장에서야 실패하며
+// 관리 모드가 꺼졌다. 대표가 "들어갔는데 저장이 안 된다"고 겪은 원인이다.
+async function checkPw(pw){
+  try{
+    const r = await fetch(SB_URL + "/rest/v1/rpc/check_pa_sale_pw", {
+      method: "POST",
+      headers: Object.assign({ "Content-Type": "application/json" }, SB_HEAD),
+      body: JSON.stringify({ p_pw: pw })
+    });
+    if (!r.ok) return "net";
+    return (await r.json()) === true ? "ok" : "bad";
+  }catch(e){ return "net"; }
+}
 async function saveReview(id, status, price, oldPrice){
   const r = await fetch(SB_URL + "/rest/v1/rpc/set_pa_sale_review", {
     method: "POST",
@@ -564,10 +578,10 @@ function updateRvBar(){
   g("rvProg").style.width = (tot ? Math.round(done / tot * 100) : 0) + "%";
 }
 
-function toast(msg){
+function toast(msg, ms){
   const t = document.getElementById("toast");
   t.textContent = msg; t.classList.add("on");
-  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("on"), 1700);
+  clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove("on"), ms || 1700);
 }
 
 document.addEventListener("click", async e => {
@@ -633,7 +647,7 @@ document.addEventListener("click", async e => {
       document.body.classList.remove("admin");
       document.getElementById("adminToggle").classList.remove("on");
       render();
-      toast("저장하지 못했습니다. 관리 모드를 다시 켜고 비밀번호를 확인해 주세요");
+      toast("저장하지 못했습니다. 관리 모드를 다시 켜고 비밀번호를 확인해 주세요", 5000);
       return;
     }
     if (next === "wait") delete review[id];
@@ -657,9 +671,15 @@ document.addEventListener("click", async e => {
     }
     const pw = prompt("관리 비밀번호를 입력하세요");
     if (pw === null || pw === "") return;
-    adminPw = pw; sessionStorage.setItem("pa_sale_pw", pw);
+    b.disabled = true; b.textContent = "확인 중…";
+    const res = await checkPw(pw.trim());
+    b.disabled = false; b.textContent = "관리 모드";
+    if (res === "bad"){ toast("비밀번호가 맞지 않습니다. 다시 눌러 입력해 주세요", 4500); return; }
+    if (res === "net"){ toast("서버에 연결하지 못했습니다. 잠시 뒤 다시 시도해 주세요", 4500); return; }
+    adminPw = pw.trim(); sessionStorage.setItem("pa_sale_pw", adminPw);
     document.body.classList.add("admin"); b.classList.add("on");
     render();
+    toast("관리 모드 — 품목마다 승인·반려·가격수정을 누르시면 바로 저장됩니다", 3500);
   }
 });
 
